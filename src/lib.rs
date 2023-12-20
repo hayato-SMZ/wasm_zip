@@ -1,13 +1,56 @@
 mod utils;
+mod zip_archiver; // Add the crate name as a prefix to the import statement
 
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::*;
 
 #[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ZipItem {
+    name: String,
+    data: Vec<u8>,
 }
 
 #[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, wasm-zip!");
+impl ZipItem {
+    #[wasm_bindgen(constructor)]
+    pub fn new(name: String, data: Vec<u8>) -> Self {
+        Self { name, data }
+    }
+}
+
+#[wasm_bindgen]
+pub fn create_zip_object() -> JsValue {
+    let archve = zip_archiver::ZipArchiver::ZipArchiver::new();
+    let boxed_zip = Box::new(archve);
+    let boxed_zip_ptr = Box::into_raw(boxed_zip);
+    JsValue::from(boxed_zip_ptr as u32)
+}
+
+#[wasm_bindgen]
+pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> JsValue {
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let result = zip.add_file(name, file);
+    if result.is_err() {
+        return JsValue::from_str("add_file error");
+    }
+    let boxed_zip = Box::new(zip);
+    let boxed_zip_ptr = Box::into_raw(boxed_zip);
+    JsValue::from(boxed_zip_ptr as u32)
+}
+
+#[wasm_bindgen]
+pub fn finish(zip_ptr: JsValue) -> Vec<u8> {
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let data = zip.finish();
+    data
+}
+#[wasm_bindgen]
+pub fn quit(zip_ptr: JsValue) {
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let _zip = unsafe { Box::from_raw(zip_ptr) };
+    drop(_zip);
 }
