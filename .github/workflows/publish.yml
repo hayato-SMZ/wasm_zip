@@ -1,0 +1,29 @@
+name: build_package
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: main
+      - name: install wasm-pack
+        working-directory: main
+        run: cargo install wasm-pack
+      - name: pablish setting
+        uses: actions/setup-node@v3
+      - name: build package
+        working-directory: main
+        run: wasm-pack build --release
+      - name: npm publish
+        working-directory: main
+        run: wasm-pack publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_PUBLISH_TOKEN}}
