@@ -1,5 +1,5 @@
 [package]
-name = "wasm-zip"
+name = "wasm-ziparchive"
 version = "0.1.0"
 authors = ["hayato-SMZ <aegis.tkx@gmail.com>"]
 edition = "2018"
