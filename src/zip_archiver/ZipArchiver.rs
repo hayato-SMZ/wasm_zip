@@ -37,7 +37,7 @@ impl ZipArchiver {
     }
 
     pub fn add_dir(&mut self, path: &str) -> ZipResult<()> {
-        self.zip.add_directory("name", self.options)?;
+        self.zip.add_directory(path, self.options)?;
         Ok(())
     }
 
