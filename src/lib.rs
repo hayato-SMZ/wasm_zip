@@ -29,16 +29,27 @@ pub fn create_zip_object() -> JsValue {
 }
 
 #[wasm_bindgen]
-pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> JsValue {
+pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> Result<(), JsValue> {
     let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let result = zip.add_file(name, file);
     if result.is_err() {
-        return JsValue::from_str("add_file error");
+        return Err(JsValue::from_str("add_file error"));
     }
-    let boxed_zip = Box::new(zip);
-    let boxed_zip_ptr = Box::into_raw(boxed_zip);
-    JsValue::from(boxed_zip_ptr as u32)
+    let _ = Box::into_raw(zip);
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub async fn add_dir(zip_ptr: JsValue, name: &str) -> Result<(), JsValue> {
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let result = zip.add_dir(name);
+    if result.is_err() {
+        return Err(JsValue::from_str("add_dir error"));
+    }
+    let _ = Box::into_raw(zip);
+    Ok(())
 }
 
 #[wasm_bindgen]
@@ -47,10 +58,4 @@ pub fn finish(zip_ptr: JsValue) -> Vec<u8> {
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let data = zip.finish();
     data
-}
-#[wasm_bindgen]
-pub fn quit(zip_ptr: JsValue) {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
-    let _zip = unsafe { Box::from_raw(zip_ptr) };
-    drop(_zip);
 }
