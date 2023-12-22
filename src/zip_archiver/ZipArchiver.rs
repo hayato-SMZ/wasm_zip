@@ -22,15 +22,6 @@ impl ZipArchiver {
     }
 
     pub fn add_file(&mut self, name: &str, data: &[u8]) -> ZipResult<()> {
-        let paths = name.split("/").collect::<Vec<&str>>();
-        if paths.len() > 1 {
-            let mut path = String::new();
-            for i in 0..paths.len() - 2 {
-                path.push_str(paths[i]);
-                path.push_str("/");
-            }
-            self.add_dir(&path.as_str())?;
-        }
         self.zip.start_file(name, self.options)?;
         self.zip.write_all(data)?;
         Ok(())
