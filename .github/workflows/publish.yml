@@ -23,7 +23,7 @@ jobs:
         working-directory: main
         run: wasm-pack build --release
       - name: npm publish
-        working-directory: main
-        run: wasm-pack publish
+        working-directory: main/pkg
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_PUBLISH_TOKEN}}
