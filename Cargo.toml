@@ -1,7 +1,9 @@
 [package]
 name = "wasm-ziparchive"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["hayato-SMZ <aegis.tkx@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/hayato-SMZ/wasm_zip"
 edition = "2018"
 
 [lib]
