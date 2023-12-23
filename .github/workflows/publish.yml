@@ -26,4 +26,4 @@ jobs:
         working-directory: main/pkg
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_PUBLISH_TOKEN}}
+          NODE_AUTH_TOKEN: ${{secrets.WASM_ZIPARCHIVE_PUBLISHSECRET}}
