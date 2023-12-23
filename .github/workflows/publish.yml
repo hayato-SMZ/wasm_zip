@@ -19,6 +19,9 @@ jobs:
         run: cargo install wasm-pack
       - name: pablish setting
         uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
       - name: build package
         working-directory: main
         run: wasm-pack build --release
