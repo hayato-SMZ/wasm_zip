@@ -21,8 +21,8 @@ impl ZipItem {
 }
 
 #[wasm_bindgen]
-pub fn create_zip_object() -> JsValue {
-    let archve = zip_archiver::ZipArchiver::ZipArchiver::new();
+pub fn create_zip_object(compression_level: i32) -> JsValue {
+    let archve = zip_archiver::ZipArchiver::ZipArchiver::new(compression_level as i64);
     let boxed_zip = Box::new(archve);
     let boxed_zip_ptr = Box::into_raw(boxed_zip);
     JsValue::from(boxed_zip_ptr as u32)

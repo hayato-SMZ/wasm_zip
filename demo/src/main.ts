@@ -18,7 +18,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 const download = document.getElementById("download");
 if (download !== null) {
   download.addEventListener("click", () => {
-    const zipobject = zip.create_zip_object();
+    const zipobject = zip.create_zip_object(6);
     const filesLoader = [
       fetch("./samplefile/dummy.pdf")
         .then((response) => response.arrayBuffer())
