@@ -1,1 +1,2 @@
-pub mod zip_archiver;
+mod zip_archiver;
+pub use zip_archiver::ZipArchiver;
