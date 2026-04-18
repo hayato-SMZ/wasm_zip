@@ -1,1 +1,1 @@
-pub mod ZipArchiver;
+pub mod zip_archiver;

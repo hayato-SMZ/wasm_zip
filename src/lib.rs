@@ -22,7 +22,7 @@ impl ZipItem {
 
 #[wasm_bindgen]
 pub fn create_zip_object(compression_level: i32) -> JsValue {
-    let archve = zip_archiver::ZipArchiver::ZipArchiver::new(compression_level as i64);
+    let archve = zip_archiver::zip_archiver::ZipArchiver::new(compression_level as i64);
     let boxed_zip = Box::new(archve);
     let boxed_zip_ptr = Box::into_raw(boxed_zip);
     JsValue::from(boxed_zip_ptr as u32)
@@ -30,7 +30,7 @@ pub fn create_zip_object(compression_level: i32) -> JsValue {
 
 #[wasm_bindgen]
 pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> Result<(), JsValue> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::zip_archiver::ZipArchiver;
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let result = zip.add_file(name, file);
     if result.is_err() {
@@ -42,7 +42,7 @@ pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> Result<(), J
 
 #[wasm_bindgen]
 pub async fn add_dir(zip_ptr: JsValue, name: &str) -> Result<(), JsValue> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::zip_archiver::ZipArchiver;
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let result = zip.add_dir(name);
     if result.is_err() {
@@ -54,7 +54,7 @@ pub async fn add_dir(zip_ptr: JsValue, name: &str) -> Result<(), JsValue> {
 
 #[wasm_bindgen]
 pub fn finish(zip_ptr: JsValue) -> Vec<u8> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::ZipArchiver::ZipArchiver;
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut zip_archiver::zip_archiver::ZipArchiver;
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let data = zip.finish();
     data
