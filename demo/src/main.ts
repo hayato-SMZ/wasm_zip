@@ -1,7 +1,5 @@
 import "./style.css";
-import * as wasmzip from "wasm-zip";
-
-const zip = wasmzip;
+import * as zip from "wasm-zip";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
@@ -15,35 +13,39 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   </div>
 `;
 
+async function addFileZeroCopy(
+  zipPtr: unknown,
+  name: string,
+  buffer: ArrayBuffer,
+): Promise<void> {
+  const bytes = new Uint8Array(buffer);
+  // Allocate a staging buffer inside Wasm linear memory.
+  const ptr = zip.alloc_staging(bytes.byteLength);
+  // Write directly into Wasm linear memory — no intermediate copy.
+  // When served with COOP/COEP headers (see vite.config.ts), the Wasm
+  // Memory is backed by a SharedArrayBuffer, making set() truly zero-copy.
+  const memory = zip.wasm_memory() as WebAssembly.Memory;
+  new Uint8Array(memory.buffer, ptr, bytes.byteLength).set(bytes);
+  zip.add_file_from_staging(zipPtr, name, ptr, bytes.byteLength);
+}
+
 const download = document.getElementById("download");
 if (download !== null) {
   download.addEventListener("click", () => {
     const zipobject = zip.create_zip_object(6);
     const filesLoader = [
       fetch("./samplefile/dummy.pdf")
-        .then((response) => response.arrayBuffer())
-        .then((buffer) => {
-          zip.add_file(zipobject, "pdf/dummy.pdf", new Uint8Array(buffer));
-        }),
+        .then((r) => r.arrayBuffer())
+        .then((buf) => addFileZeroCopy(zipobject, "pdf/dummy.pdf", buf)),
       fetch("./samplefile/dummy.pdf")
-        .then((response) => response.arrayBuffer())
-        .then((buffer) => {
-          zip.add_file(zipobject, "pdf/dummy2.pdf", new Uint8Array(buffer));
-        }),
+        .then((r) => r.arrayBuffer())
+        .then((buf) => addFileZeroCopy(zipobject, "pdf/dummy2.pdf", buf)),
       fetch("./samplefile/animal.jpg")
-        .then((response) => response.arrayBuffer())
-        .then((buffer) => {
-          zip.add_file(zipobject, "img/samplefile.jpg", new Uint8Array(buffer));
-        }),
+        .then((r) => r.arrayBuffer())
+        .then((buf) => addFileZeroCopy(zipobject, "img/samplefile.jpg", buf)),
       fetch("./samplefile/line_horse.jpg")
-        .then((response) => response.arrayBuffer())
-        .then((buffer) => {
-          zip.add_file(
-            zipobject,
-            "img/samplefile2.jpg",
-            new Uint8Array(buffer)
-          );
-        }),
+        .then((r) => r.arrayBuffer())
+        .then((buf) => addFileZeroCopy(zipobject, "img/samplefile2.jpg", buf)),
     ];
     Promise.all(filesLoader).then(() => {
       const zipblob = zip.finish(zipobject);

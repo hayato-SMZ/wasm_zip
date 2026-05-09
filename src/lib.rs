@@ -60,3 +60,42 @@ pub fn finish(zip_ptr: JsValue) -> Vec<u8> {
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     zip.finish()
 }
+
+/// Return the WebAssembly.Memory object so callers can write into Wasm linear
+/// memory when using the zero-copy staging API.
+#[wasm_bindgen]
+pub fn wasm_memory() -> JsValue {
+    wasm_bindgen::memory()
+}
+
+/// Allocate a staging buffer inside Wasm linear memory and return its pointer.
+/// The caller should write file bytes into `memory.buffer` at this pointer,
+/// then call `add_file_from_staging`.
+#[wasm_bindgen]
+pub fn alloc_staging(len: usize) -> *mut u8 {
+    let mut buf = vec![0u8; len];
+    let ptr = buf.as_mut_ptr();
+    std::mem::forget(buf);
+    ptr
+}
+
+/// Add a file whose bytes have already been written into the Wasm staging buffer
+/// allocated by `alloc_staging`. The buffer is freed after this call.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[wasm_bindgen]
+pub fn add_file_from_staging(
+    zip_ptr: JsValue,
+    name: &str,
+    ptr: *mut u8,
+    len: usize,
+) -> Result<(), JsValue> {
+    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
+    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let data = unsafe { Vec::from_raw_parts(ptr, len, len) };
+    let result = zip.add_file(name, &data);
+    let _ = Box::into_raw(zip);
+    if result.is_err() {
+        return Err(JsValue::from_str("add_file_from_staging error"));
+    }
+    Ok(())
+}
