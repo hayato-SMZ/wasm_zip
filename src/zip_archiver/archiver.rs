@@ -30,12 +30,7 @@ impl ZipArchiver {
     }
 
     pub fn finish(&mut self) -> Vec<u8> {
-        let result = self.zip.finish();
-        if result.is_err() {
-            return Vec::new();
-        } else {
-            return result.unwrap().into_inner();
-        }
+        self.zip.finish().map(|c| c.into_inner()).unwrap_or_default()
     }
 }
 
