@@ -9,5 +9,9 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    fs: {
+      // Allow serving files from the pkg/ directory outside the demo root.
+      allow: [".."],
+    },
   },
 });
