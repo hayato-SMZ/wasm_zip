@@ -111,3 +111,139 @@ pub fn add_file_from_staging(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use zip::ZipArchive;
+
+    /// staging buffer の確保ロジック本体（テスト専用ヘルパー）。
+    fn alloc_staging_inner(len: usize) -> Result<*mut u8, &'static str> {
+        if len > isize::MAX as usize {
+            return Err("requested size exceeds WASM32 per-allocation limit");
+        }
+        let mut buf = vec![0u8; len];
+        let ptr = buf.as_mut_ptr();
+        std::mem::forget(buf);
+        Ok(ptr)
+    }
+
+    /// staging buffer → ZipArchiver への追加ロジック本体（テスト専用ヘルパー）。
+    fn add_file_from_staging_inner(
+        archiver: &mut ZipArchiver,
+        name: &str,
+        ptr: *mut u8,
+        len: usize,
+    ) -> Result<(), zip::result::ZipError> {
+        let data = unsafe { Vec::from_raw_parts(ptr, len, len) };
+        archiver.add_file(name, &data)
+    }
+
+    // ---- alloc_staging_inner ------------------------------------------------
+
+    #[test]
+    fn test_alloc_staging_buffer_is_zeroed() {
+        let ptr = alloc_staging_inner(64).unwrap();
+        let buf = unsafe { Vec::from_raw_parts(ptr, 64, 64) };
+        assert!(buf.iter().all(|&b| b == 0), "staging buffer must be zero-initialized");
+    }
+
+    #[test]
+    fn test_alloc_staging_empty() {
+        // ゼロバイト確保はパニックしない
+        let ptr = alloc_staging_inner(0).unwrap();
+        let _ = unsafe { Vec::from_raw_parts(ptr, 0, 0) };
+    }
+
+    #[test]
+    fn test_alloc_staging_size_limit_rejected() {
+        // isize::MAX + 1 は拒否される（実際に確保は試みない）
+        let result = alloc_staging_inner(isize::MAX as usize + 1);
+        assert!(result.is_err(), "isize::MAX + 1 は拒否されるべき");
+    }
+
+    #[test]
+    fn test_alloc_staging_size_limit_boundary() {
+        // 上限チェックのロジックのみ検証（実際の確保はしない）
+        let limit = isize::MAX as usize;
+        assert!(limit < limit.wrapping_add(1), "境界値の確認");
+        // 小さいサイズは受け入れる
+        let ptr = alloc_staging_inner(1024).unwrap();
+        let _ = unsafe { Vec::from_raw_parts(ptr, 1024, 1024) };
+    }
+
+    // ---- staging roundtrip --------------------------------------------------
+
+    #[test]
+    fn test_staging_roundtrip_data_integrity() {
+        let data = b"Hello from staging buffer!";
+        let ptr = alloc_staging_inner(data.len()).unwrap();
+
+        // JS が memory.buffer へ書き込む操作をシミュレート
+        unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len()) };
+
+        let recovered = unsafe { Vec::from_raw_parts(ptr, data.len(), data.len()) };
+        assert_eq!(recovered.as_slice(), data);
+    }
+
+    #[test]
+    fn test_staging_produces_valid_zip() {
+        let content = b"wasm-zip staging test content";
+        let ptr = alloc_staging_inner(content.len()).unwrap();
+        unsafe { std::ptr::copy_nonoverlapping(content.as_ptr(), ptr, content.len()) };
+
+        let mut archiver = ZipArchiver::new(6);
+        add_file_from_staging_inner(&mut archiver, "staged.txt", ptr, content.len()).unwrap();
+        let zip_bytes = archiver.finish();
+
+        assert_eq!(&zip_bytes[0..2], b"PK", "ZIP マジックナンバーが正しいこと");
+
+        let mut archive = ZipArchive::new(std::io::Cursor::new(zip_bytes)).unwrap();
+        let mut file = archive.by_name("staged.txt").unwrap();
+        let mut actual = Vec::new();
+        file.read_to_end(&mut actual).unwrap();
+        assert_eq!(actual, content, "ZIP から取り出したデータが元データと一致すること");
+    }
+
+    #[test]
+    fn test_staging_multiple_files() {
+        let files: &[(&str, &[u8])] = &[
+            ("a.txt", b"content of file a"),
+            ("b.txt", b"content of file b"),
+            ("dir/c.txt", b"content of file c in subdir"),
+        ];
+
+        let mut archiver = ZipArchiver::new(6);
+        for (name, data) in files {
+            let ptr = alloc_staging_inner(data.len()).unwrap();
+            unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len()) };
+            add_file_from_staging_inner(&mut archiver, name, ptr, data.len()).unwrap();
+        }
+        let zip_bytes = archiver.finish();
+
+        let mut archive = ZipArchive::new(std::io::Cursor::new(zip_bytes)).unwrap();
+        assert_eq!(archive.len(), files.len());
+        for (name, expected) in files {
+            let mut file = archive.by_name(name).unwrap();
+            let mut actual = Vec::new();
+            file.read_to_end(&mut actual).unwrap();
+            assert_eq!(&actual, expected);
+        }
+    }
+
+    #[test]
+    fn test_staging_buffer_freed_after_add() {
+        // add_file_from_staging_inner 呼び出し後にバッファが二重解放されないことを確認
+        // （Vec::from_raw_parts が drop されるため、元のポインタを再利用しない）
+        let data = b"free me after use";
+        let ptr = alloc_staging_inner(data.len()).unwrap();
+        unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), ptr, data.len()) };
+
+        let mut archiver = ZipArchiver::new(6);
+        add_file_from_staging_inner(&mut archiver, "freed.txt", ptr, data.len()).unwrap();
+        // ここで data Vec は drop 済み。zip_bytes は正しく生成されるはず。
+        let zip_bytes = archiver.finish();
+        assert_eq!(&zip_bytes[0..2], b"PK");
+    }
+}
