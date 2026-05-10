@@ -71,12 +71,24 @@ pub fn wasm_memory() -> JsValue {
 /// Allocate a staging buffer inside Wasm linear memory and return its pointer.
 /// The caller should write file bytes into `memory.buffer` at this pointer,
 /// then call `add_file_from_staging`.
+///
+/// Returns an error if `len` exceeds the WASM32 single-allocation limit
+/// (`isize::MAX` = 2,147,483,647 bytes). Files at or above 2 GiB cannot be
+/// held in a single contiguous buffer in 32-bit WASM.
 #[wasm_bindgen]
-pub fn alloc_staging(len: usize) -> *mut u8 {
+pub fn alloc_staging(len: usize) -> Result<*mut u8, JsValue> {
+    if len > isize::MAX as usize {
+        return Err(JsValue::from_str(&format!(
+            "alloc_staging: requested size ({len} bytes) exceeds the WASM32 \
+             per-allocation limit ({} bytes, ~2 GiB - 1). \
+             Split the file into smaller chunks.",
+            isize::MAX,
+        )));
+    }
     let mut buf = vec![0u8; len];
     let ptr = buf.as_mut_ptr();
     std::mem::forget(buf);
-    ptr
+    Ok(ptr)
 }
 
 /// Add a file whose bytes have already been written into the Wasm staging buffer
