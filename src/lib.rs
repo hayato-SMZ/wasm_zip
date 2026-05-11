@@ -35,11 +35,9 @@ pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> Result<(), J
     let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let result = zip.add_file(name, file);
-    if result.is_err() {
-        return Err(JsValue::from_str("add_file error"));
-    }
+    // エラー時も ZipArchiver をヒープに戻す。drop するとポインタが dangling になる。
     let _ = Box::into_raw(zip);
-    Ok(())
+    result.map_err(|_| JsValue::from_str("add_file error"))
 }
 
 #[wasm_bindgen]
@@ -47,11 +45,8 @@ pub async fn add_dir(zip_ptr: JsValue, name: &str) -> Result<(), JsValue> {
     let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
     let mut zip = unsafe { Box::from_raw(zip_ptr) };
     let result = zip.add_dir(name);
-    if result.is_err() {
-        return Err(JsValue::from_str("add_dir error"));
-    }
     let _ = Box::into_raw(zip);
-    Ok(())
+    result.map_err(|_| JsValue::from_str("add_dir error"))
 }
 
 #[wasm_bindgen]
@@ -165,10 +160,15 @@ mod tests {
 
     #[test]
     fn test_alloc_staging_size_limit_boundary() {
-        // 上限チェックのロジックのみ検証（実際の確保はしない）
-        let limit = isize::MAX as usize;
-        assert!(limit < limit.wrapping_add(1), "境界値の確認");
-        // 小さいサイズは受け入れる
+        // チェック条件 `len > isize::MAX` の境界を確認する。
+        // isize::MAX 自体は条件を満たさない（= 受け入れ側）、isize::MAX + 1 は満たす（= 拒否側）。
+        // 2 GiB の実確保は不可能なのでチェック式の論理を直接検証する。
+        let limit: usize = isize::MAX as usize;
+        assert!(!(limit > limit), "isize::MAX は拒否条件を満たさない");
+        assert!(limit.wrapping_add(1) > limit, "isize::MAX + 1 は拒否条件を満たす");
+        // 実際の関数で境界 + 1 が拒否されることを確認
+        assert!(alloc_staging_inner(limit + 1).is_err());
+        // 合理的なサイズは実際に受け入れられる
         let ptr = alloc_staging_inner(1024).unwrap();
         let _ = unsafe { Vec::from_raw_parts(ptr, 1024, 1024) };
     }

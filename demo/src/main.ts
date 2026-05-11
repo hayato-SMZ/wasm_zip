@@ -105,21 +105,6 @@ async function addFileFromStream(
   zip.add_file_from_staging(zipPtr, name, ptr, size);
 }
 
-async function addFileFromBuffer(
-  zipPtr: unknown,
-  name: string,
-  buffer: ArrayBuffer,
-): Promise<void> {
-  const bytes = new Uint8Array(buffer);
-  const ptr = zip.alloc_staging(bytes.byteLength);
-  new Uint8Array(
-    (zip.wasm_memory() as WebAssembly.Memory).buffer,
-    ptr,
-    bytes.byteLength,
-  ).set(bytes);
-  zip.add_file_from_staging(zipPtr, name, ptr, bytes.byteLength);
-}
-
 function createSyntheticStream(
   totalBytes: number,
   chunkSize = 64 * 1024,
