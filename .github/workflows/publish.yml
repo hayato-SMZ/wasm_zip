@@ -1,7 +1,9 @@
 name: build_package
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - "release-v*.*.*"
 
 env:
   CARGO_TERM_COLOR: always
