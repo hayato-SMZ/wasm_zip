@@ -1,6 +1,6 @@
 [package]
 name = "wasm-ziparchive"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["hayato-SMZ <aegis.tkx@gmail.com>"]
 description = "A WebAssembly-powered ZIP archiver with configurable Deflate compression"
 license = "MIT"
@@ -16,8 +16,9 @@ default = ["console_error_panic_hook"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
-wasm-bindgen = { version = "0.2.84", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.18"
+js-sys = "0.3"
+wasm-bindgen = { version = "0.2.121", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4"
 zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
