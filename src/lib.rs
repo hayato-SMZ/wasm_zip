@@ -1,25 +1,9 @@
 mod utils;
 mod zip_archiver;
 
-use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 use zip_archiver::ZipArchiver;
-
-#[wasm_bindgen]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ZipItem {
-    name: String,
-    data: Vec<u8>,
-}
-
-#[wasm_bindgen]
-impl ZipItem {
-    #[wasm_bindgen(constructor)]
-    pub fn new(name: String, data: Vec<u8>) -> Self {
-        Self { name, data }
-    }
-}
 
 #[wasm_bindgen]
 pub fn create_zip_object(compression_level: i32) -> JsValue {
@@ -30,10 +14,20 @@ pub fn create_zip_object(compression_level: i32) -> JsValue {
     JsValue::from(boxed_zip_ptr as u32)
 }
 
+fn unpack_zip_ptr(zip_ptr: JsValue) -> Result<*mut ZipArchiver, JsValue> {
+    let raw = zip_ptr
+        .as_f64()
+        .ok_or_else(|| JsValue::from_str("invalid zip_ptr: expected a number"))? as usize;
+    if raw == 0 {
+        return Err(JsValue::from_str("invalid zip_ptr: null pointer"));
+    }
+    Ok(raw as *mut ZipArchiver)
+}
+
 #[wasm_bindgen]
 pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> Result<(), JsValue> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
-    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let ptr = unpack_zip_ptr(zip_ptr)?;
+    let mut zip = unsafe { Box::from_raw(ptr) };
     let result = zip.add_file(name, file);
     // エラー時も ZipArchiver をヒープに戻す。drop するとポインタが dangling になる。
     let _ = Box::into_raw(zip);
@@ -42,18 +36,18 @@ pub async fn add_file(zip_ptr: JsValue, name: &str, file: &[u8]) -> Result<(), J
 
 #[wasm_bindgen]
 pub async fn add_dir(zip_ptr: JsValue, name: &str) -> Result<(), JsValue> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
-    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let ptr = unpack_zip_ptr(zip_ptr)?;
+    let mut zip = unsafe { Box::from_raw(ptr) };
     let result = zip.add_dir(name);
     let _ = Box::into_raw(zip);
     result.map_err(|_| JsValue::from_str("add_dir error"))
 }
 
 #[wasm_bindgen]
-pub fn finish(zip_ptr: JsValue) -> Vec<u8> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
-    let mut zip = unsafe { Box::from_raw(zip_ptr) };
-    zip.finish()
+pub fn finish(zip_ptr: JsValue) -> Result<Vec<u8>, JsValue> {
+    let ptr = unpack_zip_ptr(zip_ptr)?;
+    let mut zip = unsafe { Box::from_raw(ptr) };
+    Ok(zip.finish())
 }
 
 /// Return the WebAssembly.Memory object so callers can write into Wasm linear
@@ -96,15 +90,12 @@ pub fn add_file_from_staging(
     ptr: *mut u8,
     len: usize,
 ) -> Result<(), JsValue> {
-    let zip_ptr = zip_ptr.as_f64().unwrap() as usize as *mut ZipArchiver;
-    let mut zip = unsafe { Box::from_raw(zip_ptr) };
+    let zip_raw = unpack_zip_ptr(zip_ptr)?;
+    let mut zip = unsafe { Box::from_raw(zip_raw) };
     let data = unsafe { Vec::from_raw_parts(ptr, len, len) };
     let result = zip.add_file(name, &data);
     let _ = Box::into_raw(zip);
-    if result.is_err() {
-        return Err(JsValue::from_str("add_file_from_staging error"));
-    }
-    Ok(())
+    result.map_err(|_| JsValue::from_str("add_file_from_staging error"))
 }
 
 #[cfg(test)]

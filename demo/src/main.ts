@@ -92,6 +92,11 @@ async function addFileFromStream(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      if (offset + value.length > size) {
+        throw new Error(
+          `stream overrun: "${name}" declared ${size} bytes but received more data at offset ${offset}`,
+        );
+      }
       new Uint8Array(
         (zip.wasm_memory() as WebAssembly.Memory).buffer,
         ptr + offset,
@@ -265,7 +270,11 @@ document.getElementById("fetch-run")!.addEventListener("click", async () => {
         if (!res.ok) throw new Error(`fetch failed: ${el.value} (${res.status})`);
         const contentLength = res.headers.get("Content-Length");
         if (!contentLength) throw new Error(`Content-Length が取得できません: ${el.value}`);
-        return { name: el.dataset.name!, stream: res.body!, size: Number(contentLength) };
+        const size = Number(contentLength);
+        if (!Number.isFinite(size) || size < 0) {
+          throw new Error(`Content-Length が不正な値です: "${contentLength}" (${el.value})`);
+        }
+        return { name: el.dataset.name!, stream: res.body!, size };
       }),
     );
     files = responses;
